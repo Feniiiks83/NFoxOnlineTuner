@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFox Online Tuner — Тюнер для гитары</title>
+  
+  <!-- Иконка во вкладке браузера (Favicon SVG) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='foxG' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fb923c'/%3E%3Cstop offset='100%25' stop-color='%23ea580c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23foxG)' d='M32 54 L10 14 L24 38 L32 30 L40 38 L54 14 Z'/%3E%3Ccircle cx='24' cy='36' r='3' fill='%23ffffff'/%3E%3Ccircle cx='40' cy='36' r='3' fill='%23ffffff'/%3E%3Ccircle cx='32' cy='47' r='3.5' fill='%2310b981'/%3E%3C/svg%3E">
+
+  <!-- Внешний файл стилей -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+
+  <div class="app-container">
+    <!-- Шапка сайта -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">NFox Online Tuner</h1>
+          <p class="brand-subtitle">Профессиональный гитарный строй</p>
+        </div>
+      </div>
+
+      <!-- Переключатель светлой (нежно-розовой) и темной тем -->
+      <div class="theme-toggle" id="themeToggleBtn" title="Переключить тему оформления">
+        <div class="theme-ball"></div>
+        <span class="theme-icon icon-moon">🌙</span>
+        <span class="theme-icon icon-sakura">🌸</span>
+      </div>
+    </header>
+
+    <!-- Основной рабочий блок -->
+    <main class="tuner-main">
+      <!-- Блок измерителя и детекции -->
+      <section class="gauge-card">
+        <canvas id="gaugeCanvas" width="400" height="230"></canvas>
+
+        <div class="cents-badge" id="centsBadge">0 cents</div>
+
+        <div class="detected-note-container">
+          <div class="note-display" id="detectedNote">--</div>
+          <div class="freq-display" id="detectedFreq">Ожидание звука...</div>
+        </div>
+
+        <div class="action-buttons">
+          <button id="toggleMicBtn" class="btn btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            Включить микрофон
+          </button>
+          <button id="playAllBtn" class="btn btn-secondary" title="Проиграть все струны по очереди для настройки на слух">
+            🔊 Проиграть все
+          </button>
+        </div>
+      </section>
+
+      <!-- Интерактивные колки струн -->
+      <section class="strings-section">
+        <div class="section-header">
+          <span class="section-title">Струны выбранного строя</span>
+          <span class="section-tip">Нажмите на струну, чтобы зафиксировать или услышать звук</span>
+        </div>
+        <div class="strings-grid" id="stringsGrid"></div>
+      </section>
+
+      <!-- Настройки инструмента и калибровка -->
+      <section class="controls-card">
+        <div class="control-group">
+          <label for="instrumentSelect">Инструмент</label>
+          <select id="instrumentSelect" class="form-select"></select>
+        </div>
+
+        <div class="control-group">
+          <label for="tuningSelect">Строй</label>
+          <select id="tuningSelect" class="form-select"></select>
+        </div>
+
+        <div class="control-group">
+          <div class="slider-label">
+            <label for="a4RefSlider">Опорная нота A4</label>
+            <span id="a4Value" class="slider-val">440 Гц</span>
+          </div>
+          <input type="range" id="a4RefSlider" min="430" max="450" value="440" step="1" class="form-range">
+        </div>
+
+        <div class="control-group">
+          <div class="slider-label">
+            <label for="noiseGateSlider">Порог шума</label>
+            <span id="noiseGateValue" class="slider-val">0.015</span>
+          </div>
+          <input type="range" id="noiseGateSlider" min="0.005" max="0.08" value="0.015" step="0.002" class="form-range">
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Логика работы тюнера (Web Audio API & Canvas) -->
+  <script>
+    // База инструментов и тональностей/строев
+    const INSTRUMENTS = {
+      guitar6: {
+        name: "Гитара 6-струнная",
+        tunings: {
+          standard: { name: "Стандартный (E A D G B E)", notes: ["E2", "A2", "D3", "G3", "B3", "E4"] },
+          dropD: { name: "Drop D (D A D G B E)", notes: ["D2", "A2", "D3", "G3", "B3", "E4"] },
+          halfStepDown: { name: "На полтона ниже (Eb Ab Db Gb Bb Eb)", notes: ["D#2", "G#2", "C#3", "F#3", "A#3", "D#4"] },
+          dropC: { name: "Drop C (C G C F A D)", notes: ["C2", "G2", "C3", "F3", "A3", "D4"] },
+          openD: { name: "Open D (D A D F# A D)", notes: ["D2", "A2", "D3", "F#3", "A3", "D4"] },
+          openG: { name: "Open G (D G D G B D)", notes: ["D2", "G2", "D3", "G3", "B3", "D4"] },
+          dadgad: { name: "DADGAD (D A D G A D)", notes: ["D2", "A2", "D3", "G3", "A3", "D4"] }
+        }
+      },
+      guitar7: {
+        name: "Гитара 7-струнная",
+        tunings: {
+          standard7: { name: "Стандартный (B E A D G B E)", notes: ["B1", "E2", "A2", "D3", "G3", "B3", "E4"] },
+          dropA: { name: "Drop A (A E A D G B E)", notes: ["A1", "E2", "A2", "D3", "G3", "B3", "E4"] }
+        }
+      },
+      bass4: {
+        name: "Бас-гитара 4-стр.",
+        tunings: {
+          bassStandard: { name: "Стандартный (E A D G)", notes: ["E1", "A1", "D2", "G2"] },
+          bassDropD: { name: "Drop D (D A D G)", notes: ["D1", "A1", "D2", "G2"] }
+        }
+      },
+      bass5: {
+        name: "Бас-гитара 5-стр.",
+        tunings: {
+          bass5Standard: { name: "Стандартный (B E A D G)", notes: ["B0", "E1", "A1", "D2", "G2"] }
+        }
+      },
+      ukulele: {
+        name: "Укулеле",
+        tunings: {
+          ukuStandard: { name: "Стандартный (G C E A)", notes: ["G4", "C4", "E4", "A4"] },
+          ukuD: { name: "D-строй (A D F# B)", notes: ["A4", "D4", "F#4", "B4"] }
+        }
+      }
+    };
+
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    let A4_FREQ = 440;
+    let noiseGate = 0.015;
+
+    // Преобразования частот и нот
+    function noteToFreq(noteStr, refA4 = A4_FREQ) {
+      const match = noteStr.match(/^([A-G]#?)(-?\d+)\$/);
+      if (!match) return 440;
+      const name = match[1];
+      const oct = parseInt(match[2], 10);
+      const semitone = NOTE_NAMES.indexOf(name);
+      const midiNum = (oct + 1) * 12 + semitone;
+      return refA4 * Math.pow(2, (midiNum - 69) / 12);
+    }
+
+    function freqToNoteDetails(freq, refA4 = A4_FREQ) {
+      if (!freq || freq <= 0) return null;
+      const noteNum = 12 * (Math.log(freq / refA4) / Math.log(2)) + 69;
+      const roundedNote = Math.round(noteNum);
+      const cents = Math.round((noteNum - roundedNote) * 100);
+      const semitone = ((roundedNote % 12) + 12) % 12;
+      const octave = Math.floor(roundedNote / 12) - 1;
+      const name = NOTE_NAMES[semitone];
+      const exactFreq = refA4 * Math.pow(2, (roundedNote - 69) / 12);
+      return { noteStr: name + octave, name, octave, cents, exactFreq };
+    }
+
+    // Состояние приложения
+    let currentInstrument = "guitar6";
+    let currentTuningKey = "standard";
+    let activeStringIndex = -1; // -1 = автоопределение
+    let isListening = false;
+    let audioCtx = null;
+    let analyser = null;
+    let micStream = null;
+    let buffer = null;
+
+    // Плавность стрелки
+    let smoothedCents = 0;
+
+    // DOM Элементы
+    const instSelect = document.getElementById("instrumentSelect");
+    const tuneSelect = document.getElementById("tuningSelect");
+    const stringsGrid = document.getElementById("stringsGrid");
+    const toggleMicBtn = document.getElementById("toggleMicBtn");
+    const playAllBtn = document.getElementById("playAllBtn");
+    const detectedNoteEl = document.getElementById("detectedNote");
+    const detectedFreqEl = document.getElementById("detectedFreq");
+    const centsBadgeEl = document.getElementById("centsBadge");
+    const a4Slider = document.getElementById("a4RefSlider");
+    const a4ValueEl = document.getElementById("a4Value");
+    const noiseSlider = document.getElementById("noiseGateSlider");
+    const noiseValueEl = document.getElementById("noiseGateValue");
+    const canvas = document.getElementById("gaugeCanvas");
+    const ctx = canvas.getContext("2d");
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+
+    // Инициализация темы
+    function initTheme() {
+      const savedTheme = localStorage.getItem("nfox_theme") || "dark";
+      document.body.setAttribute("data-theme", savedTheme);
+      themeToggleBtn.addEventListener("click", () => {
+        const next = document.body.getAttribute("data-theme") === "dark" ? "rose" : "dark";
+        document.body.setAttribute("data-theme", next);
+        localStorage.setItem("nfox_theme", next);
+        drawGauge();
+      });
+    }
+
+    // Заполнение селектов
+    function populateDropdowns() {
+      instSelect.innerHTML = "";
+      Object.keys(INSTRUMENTS).forEach(key => {
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = INSTRUMENTS[key].name;
+        instSelect.appendChild(opt);
+      });
+      instSelect.value = currentInstrument;
+      populateTunings();
+    }
+
+    function populateTunings() {
+      tuneSelect.innerHTML = "";
+      const tunings = INSTRUMENTS[currentInstrument].tunings;
+      Object.keys(tunings).forEach(tKey => {
+        const opt = document.createElement("option");
+        opt.value = tKey;
+        opt.textContent = tunings[tKey].name;
+        tuneSelect.appendChild(opt);
+      });
+      currentTuningKey = Object.keys(tunings)[0];
+      tuneSelect.value = currentTuningKey;
+      renderStrings();
+    }
+
+    instSelect.addEventListener("change", (e) => {
+      currentInstrument = e.target.value;
+      populateTunings();
+    });
+
+    tuneSelect.addEventListener("change", (e) => {
+      currentTuningKey = e.target.value;
+      activeStringIndex = -1;
+      renderStrings();
+    });
+
+    a4Slider.addEventListener("input", (e) => {
+      A4_FREQ = parseInt(e.target.value, 10);
+      a4ValueEl.textContent = A4_FREQ + " Гц";
+      renderStrings();
+    });
+
+    noiseSlider.addEventListener("input", (e) => {
+      noiseGate = parseFloat(e.target.value);
+      noiseValueEl.textContent = noiseGate.toFixed(3);
+    });
+
+    // Отрисовка плашек струн
+    function renderStrings() {
+      stringsGrid.innerHTML = "";
+      const notes = INSTRUMENTS[currentInstrument].tunings[currentTuningKey].notes;
+
+      notes.forEach((noteStr, idx) => {
+        const freq = noteToFreq(noteStr, A4_FREQ);
+        const card = document.createElement("div");
+        card.className = "string-peg" + (activeStringIndex === idx ? " active" : "");
+        card.dataset.index = idx;
+
+        card.innerHTML = `
+          <div class="peg-num">Струна ${idx + 1}</div>
+          <div class="peg-name">${noteStr}</div>
+          <div class="peg-freq">${freq.toFixed(1)} Гц</div>
+          <div class="peg-audio-badge">🔊 щипок</div>
+        `;
+
+        card.addEventListener("click", () => {
+          if (activeStringIndex === idx) {
+            activeStringIndex = -1;
+            card.classList.remove("active");
+          } else {
+            activeStringIndex = idx;
+            document.querySelectorAll(".string-peg").forEach(el => el.classList.remove("active"));
+            card.classList.add("active");
+          }
+          playStringPluck(freq);
+        });
+
+        stringsGrid.appendChild(card);
+      });
+    }
+
+    // Синтезатор щипка струны (акустический тембр)
+    function playStringPluck(freq) {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      const ctxTone = audioCtx && audioCtx.state === "running" ? audioCtx : new AudioCtxClass();
+      if (ctxTone.state === "suspended") ctxTone.resume();
+
+      const now = ctxTone.currentTime;
+      const osc = ctxTone.createOscillator();
+      const osc2 = ctxTone.createOscillator();
+      const gain = ctxTone.createGain();
+      const filter = ctxTone.createBiquadFilter();
+
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, now);
+
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(freq * 2, now);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(freq * 6, now);
+      filter.frequency.exponentialRampToValueAtTime(freq * 0.8, now + 1.8);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.28, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+
+      osc.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctxTone.destination);
+
+      osc.start(now);
+      osc2.start(now);
+      osc.stop(now + 2.1);
+      osc2.stop(now + 2.1);
+    }
+
+    // Проигрывание всех струн подряд
+    playAllBtn.addEventListener("click", () => {
+      const notes = INSTRUMENTS[currentInstrument].tunings[currentTuningKey].notes;
+      notes.forEach((nStr, i) => {
+        const freq = noteToFreq(nStr, A4_FREQ);
+        setTimeout(() => {
+          const peg = stringsGrid.children[i];
+          if (peg) {
+            peg.classList.add("plucking");
+            setTimeout(() => peg.classList.remove("plucking"), 600);
+          }
+          playStringPluck(freq);
+        }, i * 650);
+      });
+    });
+
+    // Аудио-движок: Автокорреляция с параболической интерполяцией
+    function autoCorrelate(buf, sampleRate) {
+      const SIZE = buf.length;
+      let rms = 0;
+      for (let i = 0; i < SIZE; i++) {
+        const val = buf[i];
+        rms += val * val;
+      }
+      rms = Math.sqrt(rms / SIZE);
+      if (rms < noiseGate) return -1; // Ниже порога шума
+
+      // Отсекаем шум по краям диапазона
+      let r1 = 0, r2 = SIZE - 1;
+      const thres = 0.2;
+      for (let i = 0; i < SIZE / 2; i++) {
+        if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+      }
+      for (let i = 1; i < SIZE / 2; i++) {
+        if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+      }
+
+      const trimmedBuf = buf.slice(r1, r2);
+      const c = new Float32Array(trimmedBuf.length);
+
+      for (let lag = 0; lag < trimmedBuf.length; lag++) {
+        for (let i = 0; i < trimmedBuf.length - lag; i++) {
+          c[lag] += trimmedBuf[i] * trimmedBuf[i + lag];
+        }
+      }
+
+      let d = 0;
+      while (c[d] > c[d + 1]) d++;
+      let maxVal = -1, maxPos = -1;
+      for (let i = d; i < trimmedBuf.length; i++) {
+        if (c[i] > maxVal) {
+          maxVal = c[i];
+          maxPos = i;
+        }
+      }
+      let T0 = maxPos;
+
+      // Параболическая интерполяция для субгерцевой точности
+      if (T0 > 0 && T0 < trimmedBuf.length - 1) {
+        const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+        const a = (x1 + x3 - 2 * x2) / 2;
+        const b = (x3 - x1) / 2;
+        if (a) T0 = T0 - b / (2 * a);
+      }
+
+      return sampleRate / T0;
+    }
+
+    // Включение / выключение микрофона
+    toggleMicBtn.addEventListener("click", async () => {
+      if (isListening) {
+        stopListening();
+      } else {
+        await startListening();
+      }
+    });
+
+    async function startListening() {
+      try {
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtxClass();
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            autoGainControl: false,
+            noiseSuppression: false,
+            latency: 0
+          }
+        });
+
+        const source = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 4096;
+        buffer = new Float32Array(analyser.fftSize);
+
+        // Фильтр высоких частот для отсечения дребезга медиатора
+        const lowpass = audioCtx.createBiquadFilter();
+        lowpass.type = "lowpass";
+        lowpass.frequency.setValueAtTime(1000, audioCtx.currentTime);
+
+        source.connect(lowpass);
+        lowpass.connect(analyser);
+
+        isListening = true;
+        toggleMicBtn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="6" width="12" height="12"/>
+          </svg>
+          Остановить
+        `;
+        toggleMicBtn.classList.add("recording");
+
+        requestAnimationFrame(updatePitchLoop);
+      } catch (err) {
+        alert("Не удалось получить доступ к микрофону: " + err.message);
+      }
+    }
+
+    function stopListening() {
+      if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+      }
+      if (audioCtx) {
+        audioCtx.close();
+        audioCtx = null;
+      }
+      isListening = false;
+      toggleMicBtn.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        Включить микрофон
+      `;
+      toggleMicBtn.classList.remove("recording");
+      detectedNoteEl.textContent = "--";
+      detectedFreqEl.textContent = "Микрофон выключен";
+      centsBadgeEl.textContent = "0 cents";
+      centsBadgeEl.style.color = "var(--text-dim)";
+      smoothedCents = 0;
+      drawGauge();
+    }
+
+    // Главный цикл детекции высоты тона
+    function updatePitchLoop() {
+      if (!isListening) return;
+
+      analyser.getFloatTimeDomainData(buffer);
+      const pitch = autoCorrelate(buffer, audioCtx.sampleRate);
+
+      if (pitch !== -1 && pitch > 30 && pitch < 1200) {
+        let targetNoteDetails = null;
+
+        // Если выбрана конкретная струна вручную
+        if (activeStringIndex >= 0) {
+          const notes = INSTRUMENTS[currentInstrument].tunings[currentTuningKey].notes;
+          const targetStr = notes[activeStringIndex];
+          const targetExactFreq = noteToFreq(targetStr, A4_FREQ);
+          const centsDiff = 1200 * (Math.log(pitch / targetExactFreq) / Math.log(2));
+          targetNoteDetails = {
+            noteStr: targetStr,
+            exactFreq: targetExactFreq,
+            cents: Math.round(centsDiff)
+          };
+        } else {
+          // Автоматическое определение ближайшей ноты
+          targetNoteDetails = freqToNoteDetails(pitch, A4_FREQ);
+          highlightNearestPeg(targetNoteDetails.noteStr);
+        }
+
+        if (targetNoteDetails) {
+          const cents = Math.max(-50, Math.min(50, targetNoteDetails.cents));
+          smoothedCents += (cents - smoothedCents) * 0.28; // Плавное демпфирование
+
+          detectedNoteEl.textContent = targetNoteDetails.noteStr;
+          detectedFreqEl.textContent = `${pitch.toFixed(1)} Гц (цель: ${targetNoteDetails.exactFreq.toFixed(1)} Гц)`;
+
+          const cRound = Math.round(smoothedCents);
+          if (Math.abs(cRound) <= 3) {
+            centsBadgeEl.textContent = "В унисон! (Идеально)";
+            centsBadgeEl.style.color = "var(--accent-green)";
+          } else if (cRound < 0) {
+            centsBadgeEl.textContent = `${cRound} cents (Слишком низко)`;
+            centsBadgeEl.style.color = "var(--accent-blue)";
+          } else {
+            centsBadgeEl.textContent = `+${cRound} cents (Слишком высоко)`;
+            centsBadgeEl.style.color = "var(--accent-gold)";
+          }
+        }
+      } else {
+        // Постепенный возврат стрелки к 0 при тишине
+        smoothedCents += (0 - smoothedCents) * 0.08;
+      }
+
+      drawGauge();
+      requestAnimationFrame(updatePitchLoop);
+    }
+
+    // Подсветка струны при автоопределении
+    function highlightNearestPeg(noteStr) {
+      const notes = INSTRUMENTS[currentInstrument].tunings[currentTuningKey].notes;
+      notes.forEach((n, idx) => {
+        const peg = stringsGrid.children[idx];
+        if (peg && activeStringIndex === -1) {
+          if (n === noteStr) {
+            peg.classList.add("detected-match");
+          } else {
+            peg.classList.remove("detected-match");
+          }
+        }
+      });
+    }
+
+    // Отрисовка шкалы тюнера (Canvas Gauge)
+    function drawGauge() {
+      const isRose = document.body.getAttribute("data-theme") === "rose";
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h - 25;
+      const radius = 150;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Фон дуги
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI, false);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = isRose ? "rgba(244, 63, 94, 0.12)" : "rgba(255, 255, 255, 0.08)";
+      ctx.stroke();
+
+      // Центральная зона допуска (±3 цента)
+      const greenToleranceAngle = (3 / 50) * (Math.PI / 2.2);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 1.5 * Math.PI - greenToleranceAngle, 1.5 * Math.PI + greenToleranceAngle, false);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = "#10b981";
+      ctx.stroke();
+
+      // Риски шкалы
+      for (let c = -50; c <= 50; c += 10) {
+        const angle = 1.5 * Math.PI + (c / 50) * (Math.PI / 2.2);
+        const isCenter = c === 0;
+        const isMain = c % 20 === 0;
+        const tickLen = isCenter ? 18 : (isMain ? 12 : 7);
+
+        const x1 = cx + (radius - 12) * Math.cos(angle);
+        const y1 = cy + (radius - 12) * Math.sin(angle);
+        const x2 = cx + (radius - 12 - tickLen) * Math.cos(angle);
+        const y2 = cy + (radius - 12 - tickLen) * Math.sin(angle);
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineWidth = isCenter ? 3 : (isMain ? 2 : 1);
+        ctx.strokeStyle = isCenter ? "#10b981" : (isRose ? "rgba(71, 85, 105, 0.45)" : "rgba(255, 255, 255, 0.35)");
+        ctx.stroke();
+
+        // Числовые подписи
+        if (isMain) {
+          const tx = cx + (radius - 38) * Math.cos(angle);
+          const ty = cy + (radius - 38) * Math.sin(angle);
+          ctx.fillStyle = isRose ? "#64748b" : "#94a3b8";
+          ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText((c > 0 ? "+" : "") + c, tx, ty);
+        }
+      }
+
+      // Стрелка индикатора
+      const clampedCents = Math.max(-50, Math.min(50, smoothedCents));
+      const needleAngle = 1.5 * Math.PI + (clampedCents / 50) * (Math.PI / 2.2);
+
+      const nx = cx + (radius - 10) * Math.cos(needleAngle);
+      const ny = cy + (radius - 10) * Math.sin(needleAngle);
+
+      let needleColor = Math.abs(clampedCents) <= 3 
+        ? "#10b981" 
+        : (clampedCents < 0 ? (isRose ? "#f43f5e" : "#38bdf8") : "#f59e0b");
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(nx, ny);
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = needleColor;
+      ctx.lineCap = "round";
+      ctx.shadowColor = needleColor;
+      ctx.shadowBlur = Math.abs(clampedCents) <= 3 ? 12 : 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Центральная ось стрелки
+      ctx.beginPath();
+      ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = needleColor;
+      ctx.fill();
+    }
+
+    // Старт приложения
+    initTheme();
+    populateDropdowns();
+    drawGauge();
+  </script>
+</body>
+</html>

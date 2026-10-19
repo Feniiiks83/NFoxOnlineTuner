@@ -1,0 +1,480 @@
+/* ==========================================================================
+   NFox Online Tuner — Variables & Color Schemes
+   ========================================================================== */
+
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --border-radius-lg: 20px;
+  --border-radius-md: 14px;
+  --border-radius-sm: 8px;
+}
+
+/* Темная тема (по умолчанию) */
+body[data-theme="dark"] {
+  --bg-gradient: linear-gradient(135deg, #090d16 0%, #111827 50%, #0b0f19 100%);
+  --card-bg: rgba(22, 29, 45, 0.75);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+  --accent-primary: #f97316; /* Фирменный оранжевый акцент NFox */
+  --accent-primary-hover: #ea580c;
+  --accent-green: #10b981;
+  --accent-blue: #38bdf8;
+  --accent-gold: #f59e0b;
+  --peg-bg: rgba(30, 41, 59, 0.7);
+  --peg-border: rgba(255, 255, 255, 0.06);
+  --input-bg: rgba(15, 23, 42, 0.8);
+  --theme-toggle-bg: #1e293b;
+}
+
+/* Нежно-розовая тема (Soft Sakura / Rose Blush) */
+body[data-theme="rose"] {
+  --bg-gradient: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 45%, #fdf2f8 100%);
+  --card-bg: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(244, 63, 94, 0.18);
+  --card-shadow: 0 16px 36px rgba(244, 63, 94, 0.08);
+  --text-main: #471d2b;
+  --text-dim: #9f717e;
+  --accent-primary: #f43f5e; /* Нежный розово-малиновый */
+  --accent-primary-hover: #e11d48;
+  --accent-green: #059669;
+  --accent-blue: #f43f5e;
+  --accent-gold: #d97706;
+  --peg-bg: rgba(255, 255, 255, 0.9);
+  --peg-border: rgba(251, 113, 133, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.95);
+  --theme-toggle-bg: #fed7aa;
+}
+
+/* ==========================================================================
+   Base & Reset
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--bg-gradient);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 16px;
+  transition: var(--transition-smooth);
+}
+
+.app-container {
+  width: 100%;
+  max-width: 580px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ==========================================================================
+   Header & Theme Switcher
+   ========================================================================== */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 6px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--accent-primary);
+  color: #ffffff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.35);
+  transition: var(--transition-smooth);
+}
+
+body[data-theme="rose"] .brand-icon {
+  box-shadow: 0 6px 16px rgba(244, 63, 94, 0.3);
+}
+
+.brand-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.brand-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brand-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+/* Переключатель темы (Кнопка-тумблер) */
+.theme-toggle {
+  width: 64px;
+  height: 34px;
+  background: var(--theme-toggle-bg);
+  border-radius: 30px;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  border: 1px solid var(--card-border);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: var(--transition-smooth);
+  user-select: none;
+}
+
+.theme-ball {
+  width: 26px;
+  height: 26px;
+  background: #ffffff;
+  border-radius: 50%;
+  position: absolute;
+  left: 4px;
+  top: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body[data-theme="rose"] .theme-ball {
+  transform: translateX(30px);
+  background: #fff;
+}
+
+.theme-icon {
+  font-size: 0.95rem;
+  z-index: 1;
+}
+
+/* ==========================================================================
+   Cards & Layout
+   ========================================================================== */
+
+.gauge-card,
+.controls-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--border-radius-lg);
+  padding: 24px 20px;
+  transition: var(--transition-smooth);
+}
+
+.gauge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+#gaugeCanvas {
+  max-width: 100%;
+  height: auto;
+}
+
+.cents-badge {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: -6px;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+  transition: color 0.2s ease;
+}
+
+.detected-note-container {
+  margin: 10px 0 22px 0;
+}
+
+.note-display {
+  font-size: 3.8rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text-main);
+}
+
+.freq-display {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.btn {
+  flex: 1;
+  padding: 13px 18px;
+  border-radius: var(--border-radius-md);
+  font-size: 0.92rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: var(--transition-smooth);
+}
+
+.btn-primary {
+  background: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.35);
+}
+
+body[data-theme="rose"] .btn-primary {
+  box-shadow: 0 6px 18px rgba(244, 63, 94, 0.3);
+}
+
+.btn-primary:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary.recording {
+  background: #ef4444;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-main);
+}
+
+.btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.25);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   Strings Pegs Section
+   ========================================================================== */
+
+.strings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 4px;
+}
+
+.section-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.section-tip {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.strings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+  gap: 8px;
+}
+
+.string-peg {
+  background: var(--peg-bg);
+  border: 1px solid var(--peg-border);
+  border-radius: var(--border-radius-md);
+  padding: 12px 6px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.string-peg:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-primary);
+}
+
+.string-peg.active {
+  border-color: var(--accent-primary);
+  background: rgba(249, 115, 22, 0.12);
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.3);
+}
+
+body[data-theme="rose"] .string-peg.active {
+  background: rgba(244, 63, 94, 0.12);
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.25);
+}
+
+.string-peg.detected-match {
+  border-color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.string-peg.plucking {
+  animation: pegPulse 0.5s ease;
+}
+
+@keyframes pegPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.peg-num {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.peg-name {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 3px 0;
+  color: var(--text-main);
+}
+
+.peg-freq {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.peg-audio-badge {
+  font-size: 0.65rem;
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   Controls & Settings
+   ========================================================================== */
+
+.controls-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.form-select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--border-radius-sm);
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.form-select:focus {
+  border-color: var(--accent-primary);
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slider-val {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.form-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.25);
+  outline: none;
+  cursor: pointer;
+}
+
+.form-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.form-range::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+/* ==========================================================================
+   Responsive Adaptations
+   ========================================================================== */
+
+@media (max-width: 480px) {
+  body {
+    padding: 14px 10px;
+  }
+  .gauge-card, .controls-card {
+    padding: 18px 14px;
+  }
+  .note-display {
+    font-size: 3.2rem;
+  }
+  .action-buttons {
+    flex-direction: column;
+  }
+  .strings-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
