@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFox Online Tuner — Тюнер для гитары</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Внешний файл стилей -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Декоративные фоновые элементы -->
+  <div class="blob-bg blob-1"></div>
+  <div class="blob-bg blob-2"></div>
+
+  <div class="app-wrapper">
+    <!-- Шапка -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>NFox Online Tuner</h1>
+          <span class="brand-badge">PRO DSP ENGINE</span>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button id="themeToggleBtn" class="theme-toggle" title="Сменить тему оформления">
+          <span class="theme-icon dark-icon">🌙</span>
+          <span class="theme-icon light-icon">🌸</span>
+          <span class="theme-text">Нежная сакура</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Основная сетка приложения -->
+    <main class="tuner-grid">
+      
+      <!-- Главная панель настройки (Gauge + Note Display) -->
+      <section class="card main-meter-card">
+        <div class="mic-status-bar">
+          <button id="micToggleBtn" class="primary-btn pulse-glow">
+            <span class="btn-icon">🎙️</span>
+            <span class="btn-text">Включить микрофон</span>
+          </button>
+          <div id="statusIndicator" class="status-pill status-standby">
+            <span class="status-dot"></span>
+            <span class="status-text">Ожидание запуска</span>
+          </div>
+        </div>
+
+        <!-- Центральный дисплей ноты -->
+        <div class="note-hero-wrap">
+          <div class="note-cents-badge" id="centsDisplay">0 центов</div>
+          <div class="hero-note" id="detectedNote">--</div>
+          <div class="hero-sub" id="detectedFreq">0.00 Hz</div>
+          <div class="octave-badge" id="detectedOctave"></div>
+        </div>
+
+        <!-- Canvas со стрелочным прибором -->
+        <div class="gauge-container">
+          <canvas id="gaugeCanvas" width="480" height="180"></canvas>
+          <div class="gauge-labels">
+            <span>♭ НИЖЕ</span>
+            <span class="gauge-center-label">В СТРОЕ</span>
+            <span>ВЫШЕ ♯</span>
+          </div>
+        </div>
+
+        <!-- Мини-спектрограмма / RMS индикатор уровня -->
+        <div class="rms-meter-wrap" title="Уровень входного аудиосигнала">
+          <div class="rms-meter-label">Входной сигнал:</div>
+          <div class="rms-bar-track">
+            <div id="rmsBarFill" class="rms-bar-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Интерактивные колки и струны инструмента -->
+      <section class="card strings-card">
+        <div class="card-header">
+          <h2>Струны и колки</h2>
+          <div class="strings-actions">
+            <button id="playAllBtn" class="secondary-btn" title="Проиграть все струны сверху вниз">
+              ▶ Проиграть все
+            </button>
+            <button id="autoSelectToggle" class="mode-toggle-btn active" title="Автоматический выбор струны по высоте тона">
+              Автоопределение
+            </button>
+          </div>
+        </div>
+
+        <div id="pegsContainer" class="pegs-container">
+          <!-- Генерируется скриптом -->
+        </div>
+
+        <div class="fretboard-preview">
+          <div class="wood-neck">
+            <div id="fretLines" class="fret-lines"></div>
+            <div id="stringCables" class="string-cables"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Панель выбора инструмента, строя и калибровки -->
+      <section class="card controls-card">
+        <div class="card-header">
+          <h2>Инструмент и строй</h2>
+        </div>
+
+        <div class="control-group">
+          <label for="instrumentSelect">Инструмент</label>
+          <div class="select-wrapper">
+            <select id="instrumentSelect">
+              <option value="guitar6">6-струнная гитара</option>
+              <option value="guitar7">7-струнная гитара</option>
+              <option value="bass4">Бас-гитара (4 струны)</option>
+              <option value="bass5">Бас-гитара (5 струн)</option>
+              <option value="ukulele">Укулеле (Soprano/Concert)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label for="tuningSelect">Строй (Тональность)</label>
+          <div class="select-wrapper">
+            <select id="tuningSelect">
+              <!-- Заполняется динамически -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Калибровка базового камертона A4 -->
+        <div class="control-group slider-group">
+          <div class="slider-header">
+            <label for="a4RefSlider">Опорная нота A4 (Камертон)</label>
+            <span id="a4RefVal" class="slider-val">440 Hz</span>
+          </div>
+          <input type="range" id="a4RefSlider" min="430" max="450" step="1" value="440">
+          <div class="slider-quick-picks">
+            <button class="quick-pick" data-val="432">432 Hz</button>
+            <button class="quick-pick active" data-val="440">440 Hz (Стандарт)</button>
+            <button class="quick-pick" data-val="444">444 Hz</button>
+          </div>
+        </div>
+
+        <!-- Чувствительность шума -->
+        <div class="control-group slider-group">
+          <div class="slider-header">
+            <label for="noiseGateSlider">Порог отсечки шума</label>
+            <span id="noiseGateVal" class="slider-val">0.012</span>
+          </div>
+          <input type="range" id="noiseGateSlider" min="0.002" max="0.05" step="0.002" value="0.012">
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="app-footer">
+      <p>NFox Online Tuner • Быстрая и точная автокорреляция звука (Web Audio API / DSP)</p>
+    </footer>
+  </div>
+
+  <!-- Основной JS-скрипт приложения -->
+  <script>
+    /* =========================================================================
+       1. БИБЛИОТЕКА ИНСТРУМЕНТОВ И СТРОЕВ
+       ========================================================================= */
+    const INSTRUMENT_LIBRARY = {
+      guitar6: {
+        name: "6-струнная гитара",
+        tunings: [
+          { id: "std", name: "Стандартный (E A D G B E)", strings: [
+            { note: "E", octave: 4, freq: 329.63 },
+            { note: "B", octave: 3, freq: 246.94 },
+            { note: "G", octave: 3, freq: 196.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "A", octave: 2, freq: 110.00 },
+            { note: "E", octave: 2, freq: 82.41 }
+          ]},
+          { id: "drop_d", name: "Drop D (D A D G B E)", strings: [
+            { note: "E", octave: 4, freq: 329.63 },
+            { note: "B", octave: 3, freq: 246.94 },
+            { note: "G", octave: 3, freq: 196.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "A", octave: 2, freq: 110.00 },
+            { note: "D", octave: 2, freq: 73.42 }
+          ]},
+          { id: "half_step_down", name: "Half-Step Down / Eb (D# G# C# F# A# D#)", strings: [
+            { note: "D#", octave: 4, freq: 311.13 },
+            { note: "A#", octave: 3, freq: 233.08 },
+            { note: "F#", octave: 3, freq: 185.00 },
+            { note: "C#", octave: 3, freq: 138.59 },
+            { note: "G#", octave: 2, freq: 103.83 },
+            { note: "D#", octave: 2, freq: 77.78 }
+          ]},
+          { id: "drop_c", name: "Drop C (C G C F A D)", strings: [
+            { note: "D", octave: 4, freq: 293.66 },
+            { note: "A", octave: 3, freq: 220.00 },
+            { note: "F", octave: 3, freq: 174.61 },
+            { note: "C", octave: 3, freq: 130.81 },
+            { note: "G", octave: 2, freq: 98.00 },
+            { note: "C", octave: 2, freq: 65.41 }
+          ]},
+          { id: "open_d", name: "Open D (D A D F# A D)", strings: [
+            { note: "D", octave: 4, freq: 293.66 },
+            { note: "A", octave: 3, freq: 220.00 },
+            { note: "F#", octave: 3, freq: 185.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "A", octave: 2, freq: 110.00 },
+            { note: "D", octave: 2, freq: 73.42 }
+          ]},
+          { id: "open_g", name: "Open G (D G D G B D)", strings: [
+            { note: "D", octave: 4, freq: 293.66 },
+            { note: "B", octave: 3, freq: 246.94 },
+            { note: "G", octave: 3, freq: 196.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "G", octave: 2, freq: 98.00 },
+            { note: "D", octave: 2, freq: 73.42 }
+          ]},
+          { id: "dadgad", name: "DADGAD (D A D G A D)", strings: [
+            { note: "D", octave: 4, freq: 293.66 },
+            { note: "A", octave: 3, freq: 220.00 },
+            { note: "G", octave: 3, freq: 196.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "A", octave: 2, freq: 110.00 },
+            { note: "D", octave: 2, freq: 73.42 }
+          ]}
+        ]
+      },
+      guitar7: {
+        name: "7-струнная гитара",
+        tunings: [
+          { id: "std7", name: "Стандартный 7-струнный (B E A D G B E)", strings: [
+            { note: "E", octave: 4, freq: 329.63 },
+            { note: "B", octave: 3, freq: 246.94 },
+            { note: "G", octave: 3, freq: 196.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "A", octave: 2, freq: 110.00 },
+            { note: "E", octave: 2, freq: 82.41 },
+            { note: "B", octave: 1, freq: 61.74 }
+          ]},
+          { id: "drop_a", name: "Drop A (A E A D G B E)", strings: [
+            { note: "E", octave: 4, freq: 329.63 },
+            { note: "B", octave: 3, freq: 246.94 },
+            { note: "G", octave: 3, freq: 196.00 },
+            { note: "D", octave: 3, freq: 146.83 },
+            { note: "A", octave: 2, freq: 110.00 },
+            { note: "E", octave: 2, freq: 82.41 },
+            { note: "A", octave: 1, freq: 55.00 }
+          ]}
+        ]
+      },
+      bass4: {
+        name: "Бас-гитара (4 струны)",
+        tunings: [
+          { id: "bass_std", name: "Стандартный бас (E A D G)", strings: [
+            { note: "G", octave: 2, freq: 98.00 },
+            { note: "D", octave: 2, freq: 73.42 },
+            { note: "A", octave: 1, freq: 55.00 },
+            { note: "E", octave: 1, freq: 41.20 }
+          ]},
+          { id: "bass_drop_d", name: "Drop D бас (D A D G)", strings: [
+            { note: "G", octave: 2, freq: 98.00 },
+            { note: "D", octave: 2, freq: 73.42 },
+            { note: "A", octave: 1, freq: 55.00 },
+            { note: "D", octave: 1, freq: 36.71 }
+          ]}
+        ]
+      },
+      bass5: {
+        name: "Бас-гитара (5 струн)",
+        tunings: [
+          { id: "bass5_std", name: "Стандартный 5-стр. (B E A D G)", strings: [
+            { note: "G", octave: 2, freq: 98.00 },
+            { note: "D", octave: 2, freq: 73.42 },
+            { note: "A", octave: 1, freq: 55.00 },
+            { note: "E", octave: 1, freq: 41.20 },
+            { note: "B", octave: 0, freq: 30.87 }
+          ]}
+        ]
+      },
+      ukulele: {
+        name: "Укулеле",
+        tunings: [
+          { id: "uku_std", name: "Стандартный C (G C E A)", strings: [
+            { note: "A", octave: 4, freq: 440.00 },
+            { note: "E", octave: 4, freq: 329.63 },
+            { note: "C", octave: 4, freq: 261.63 },
+            { note: "G", octave: 4, freq: 392.00 }
+          ]},
+          { id: "uku_d", name: "D-Tuning (A D F# B)", strings: [
+            { note: "B", octave: 4, freq: 493.88 },
+            { note: "F#", octave: 4, freq: 369.99 },
+            { note: "D", octave: 4, freq: 293.66 },
+            { note: "A", octave: 4, freq: 440.00 }
+          ]}
+        ]
+      }
+    };
+
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+    /* =========================================================================
+       2. СОСТОЯНИЕ И ПЕРЕМЕННЫЕ
+       ========================================================================= */
+    const state = {
+      isMicActive: false,
+      audioCtx: null,
+      analyser: null,
+      stream: null,
+      sourceNode: null,
+      biquadFilter: null,
+      rafId: null,
+      currentInstrument: "guitar6",
+      currentTuningId: "std",
+      referenceA4: 440,
+      noiseThreshold: 0.012,
+      isAutoDetect: true,
+      selectedStringIdx: null,
+      currentDetectedFreq: 0,
+      currentDetectedCents: 0,
+      currentClosestNote: null,
+      smoothedCents: 0,
+      theme: localStorage.getItem('nfox_tuner_theme') || 'dark'
+    };
+
+    /* =========================================================================
+       3. DOM ЭЛЕМЕНТЫ
+       ========================================================================= */
+    const dom = {
+      themeToggleBtn: document.getElementById('themeToggleBtn'),
+      micToggleBtn: document.getElementById('micToggleBtn'),
+      statusIndicator: document.getElementById('statusIndicator'),
+      detectedNote: document.getElementById('detectedNote'),
+      detectedFreq: document.getElementById('detectedFreq'),
+      detectedOctave: document.getElementById('detectedOctave'),
+      centsDisplay: document.getElementById('centsDisplay'),
+      gaugeCanvas: document.getElementById('gaugeCanvas'),
+      rmsBarFill: document.getElementById('rmsBarFill'),
+      instrumentSelect: document.getElementById('instrumentSelect'),
+      tuningSelect: document.getElementById('tuningSelect'),
+      a4RefSlider: document.getElementById('a4RefSlider'),
+      a4RefVal: document.getElementById('a4RefVal'),
+      noiseGateSlider: document.getElementById('noiseGateSlider'),
+      noiseGateVal: document.getElementById('noiseGateVal'),
+      pegsContainer: document.getElementById('pegsContainer'),
+      stringCables: document.getElementById('stringCables'),
+      fretLines: document.getElementById('fretLines'),
+      playAllBtn: document.getElementById('playAllBtn'),
+      autoSelectToggle: document.getElementById('autoSelectToggle'),
+      quickPicks: document.querySelectorAll('.quick-pick')
+    };
+
+    const canvasCtx = dom.gaugeCanvas.getContext('2d');
+
+    /* =========================================================================
+       4. УПРАВЛЕНИЕ ТЕМОЙ
+       ========================================================================= */
+    function applyTheme(theme) {
+      state.theme = theme;
+      if (theme === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+        dom.themeToggleBtn.querySelector('.theme-text').textContent = 'Тёмная ночь';
+      } else {
+        document.body.removeAttribute('data-theme');
+        dom.themeToggleBtn.querySelector('.theme-text').textContent = 'Нежная сакура';
+      }
+      localStorage.setItem('nfox_tuner_theme', theme);
+      drawGauge(state.smoothedCents);
+    }
+
+    dom.themeToggleBtn.addEventListener('click', () => {
+      const nextTheme = state.theme === 'light' ? 'dark' : 'light';
+      applyTheme(nextTheme);
+    });
+
+    applyTheme(state.theme);
+
+    /* =========================================================================
+       5. ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА СТРОЕВ И СТРУН
+       ========================================================================= */
+    function renderTuningDropdown() {
+      const instData = INSTRUMENT_LIBRARY[state.currentInstrument];
+      dom.tuningSelect.innerHTML = "";
+      instData.tunings.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = t.name;
+        dom.tuningSelect.appendChild(opt);
+      });
+      state.currentTuningId = instData.tunings[0].id;
+      dom.tuningSelect.value = state.currentTuningId;
+      renderStringPegs();
+    }
+
+    function getCurrentTuningStrings() {
+      const inst = INSTRUMENT_LIBRARY[state.currentInstrument];
+      const tuning = inst.tunings.find(t => t.id === state.currentTuningId) || inst.tunings[0];
+      const a4Scale = state.referenceA4 / 440;
+      return tuning.strings.map(s => ({
+        ...s,
+        calibratedFreq: s.freq * a4Scale
+      }));
+    }
+
+    function renderStringPegs() {
+      const strings = getCurrentTuningStrings();
+      dom.pegsContainer.innerHTML = "";
+      dom.stringCables.innerHTML = "";
+      dom.fretLines.innerHTML = "";
+
+      for (let i = 0; i < 6; i++) {
+        const fret = document.createElement('div');
+        fret.className = 'fret-bar';
+        dom.fretLines.appendChild(fret);
+      }
+
+      strings.forEach((str, idx) => {
+        const peg = document.createElement("div");
+        peg.className = "peg-item";
+        peg.dataset.index = idx;
+        if (!state.isAutoDetect && state.selectedStringIdx === idx) {
+          peg.classList.add("active");
+        }
+
+        peg.innerHTML = `
+          <div class="peg-num">${strings.length - idx}</div>
+          <div class="peg-info">
+            <span class="peg-note">${str.note}</span>
+            <span class="peg-octave">${str.octave}</span>
+            <span class="peg-freq">${str.calibratedFreq.toFixed(1)} Hz</span>
+          </div>
+          <button class="peg-play-btn" title="Послушать ноту" data-idx="${idx}">🔊</button>
+        `;
+
+        peg.addEventListener("click", (e) => {
+          if (e.target.classList.contains("peg-play-btn")) {
+            playAcousticString(str.calibratedFreq);
+            return;
+          }
+          if (state.isAutoDetect) {
+            state.isAutoDetect = false;
+            dom.autoSelectToggle.classList.remove("active");
+          }
+          state.selectedStringIdx = idx;
+          highlightSelectedPeg();
+        });
+
+        dom.pegsContainer.appendChild(peg);
+
+        const cable = document.createElement('div');
+        cable.className = 'cable-line';
+        cable.id = `cable-${idx}`;
+        const thickness = Math.max(1.5, (idx + 1) * 0.9);
+        cable.style.height = `${thickness}px`;
+        dom.stringCables.appendChild(cable);
+      });
+    }
+
+    function highlightSelectedPeg() {
+      const pegs = dom.pegsContainer.querySelectorAll('.peg-item');
+      pegs.forEach((p, idx) => {
+        if (state.selectedStringIdx === idx) {
+          p.classList.add('active');
+        } else {
+          p.classList.remove('active');
+        }
+      });
+    }
+
+    /* =========================================================================
+       6. СИНТЕЗАТОР ЗВУКА СТРУНЫ (WEB AUDIO API)
+       ========================================================================= */
+    function ensureAudioContext() {
+      if (!state.audioCtx) {
+        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
+    }
+
+    function playAcousticString(freq) {
+      ensureAudioContext();
+      const ctx = state.audioCtx;
+      const now = ctx.currentTime;
+      const duration = 2.4;
+
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.001, now);
+      masterGain.gain.exponentialRampToValueAtTime(0.4, now + 0.02);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(freq * 6, now);
+      filter.frequency.exponentialRampToValueAtTime(freq * 1.5, now + duration);
+
+      const harmonics = [1, 2, 3, 4, 5];
+      const gains = [0.6, 0.3, 0.15, 0.08, 0.03];
+
+      harmonics.forEach((h, i) => {
+        const osc = ctx.createOscillator();
+        const hGain = ctx.createGain();
+        osc.type = i === 0 ? "triangle" : "sine";
+        osc.frequency.setValueAtTime(freq * h, now);
+        hGain.gain.setValueAtTime(gains[i], now);
+        osc.connect(hGain);
+        hGain.connect(filter);
+        osc.start(now);
+        osc.stop(now + duration);
+      });
+
+      filter.connect(masterGain);
+      masterGain.connect(ctx.destination);
+    }
+
+    dom.playAllBtn.addEventListener('click', () => {
+      const strings = getCurrentTuningStrings();
+      strings.forEach((str, idx) => {
+        setTimeout(() => {
+          playAcousticString(str.calibratedFreq);
+          const peg = dom.pegsContainer.querySelector(`[data-index="${idx}"]`);
+          if (peg) {
+            peg.classList.add('pulse');
+            setTimeout(() => peg.classList.remove('pulse'), 500);
+          }
+        }, idx * 450);
+      });
+    });
+
+    /* =========================================================================
+       7. DSP: АВТОКОРРЕЛЯЦИЯ ВЫСОТЫ ТОНА (PITCH DETECTION)
+       ========================================================================= */
+    function autoCorrelate(buffer, sampleRate) {
+      const SIZE = buffer.length;
+      let rms = 0;
+      for (let i = 0; i < SIZE; i++) {
+        const val = buffer[i];
+        rms += val * val;
+      }
+      rms = Math.sqrt(rms / SIZE);
+
+      if (rms < state.noiseThreshold) {
+        return { freq: -1, rms: rms };
+      }
+
+      let r1 = 0, r2 = SIZE - 1;
+      const thres = 0.2;
+      for (let i = 0; i < SIZE / 2; i++) {
+        if (Math.abs(buffer[i]) < thres) {
+          r1 = i;
+          break;
+        }
+      }
+      for (let i = 1; i < SIZE / 2; i++) {
+        if (Math.abs(buffer[SIZE - i]) < thres) {
+          r2 = SIZE - i;
+          break;
+        }
+      }
+
+      const trimmedBuffer = buffer.slice(r1, r2);
+      const c = new Float32Array(trimmedBuffer.length);
+      const cLen = c.length;
+
+      for (let lag = 0; lag < cLen; lag++) {
+        let sum = 0;
+        for (let i = 0; i < cLen - lag; i++) {
+          sum += trimmedBuffer[i] * trimmedBuffer[i + lag];
+        }
+        c[lag] = sum;
+      }
+
+      let d = 0;
+      while (d < cLen - 1 && c[d] > c[d + 1]) {
+        d++;
+      }
+
+      let maxVal = -1;
+      let maxLag = -1;
+      for (let i = d; i < cLen; i++) {
+        if (c[i] > maxVal) {
+          maxVal = c[i];
+          maxLag = i;
+        }
+      }
+
+      if (maxLag === -1 || maxVal < 0.01) {
+        return { freq: -1, rms: rms };
+      }
+
+      let delta = 0;
+      if (maxLag > 0 && maxLag < cLen - 1) {
+        const alpha = c[maxLag - 1];
+        const beta = c[maxLag];
+        const gamma = c[maxLag + 1];
+        delta = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma);
+      }
+
+      const refinedLag = maxLag + delta;
+      const fundamentalFreq = sampleRate / refinedLag;
+
+      if (fundamentalFreq < 25 || fundamentalFreq > 1200) {
+        return { freq: -1, rms: rms };
+      }
+
+      return { freq: fundamentalFreq, rms: rms };
+    }
+
+    function freqToNoteInfo(freq) {
+      const a4 = state.referenceA4;
+      const noteNum = 12 * (Math.log(freq / a4) / Math.log(2)) + 69;
+      const roundedNote = Math.round(noteNum);
+      const cents = Math.round((noteNum - roundedNote) * 100);
+
+      const noteIndex = ((roundedNote % 12) + 12) % 12;
+      const octave = Math.floor(roundedNote / 12) - 1;
+      const noteName = NOTE_NAMES[noteIndex];
+
+      return {
+        noteName,
+        octave,
+        cents,
+        targetFreq: a4 * Math.pow(2, (roundedNote - 69) / 12)
+      };
+    }
+
+    /* =========================================================================
+       8. ЗАПУСК И ОБРАБОТКА МИКРОФОНА
+       ========================================================================= */
+    async function startAudioEngine() {
+      ensureAudioContext();
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            autoGainControl: false,
+            noiseSuppression: false,
+            latency: 0
+          }
+        });
+
+        const ctx = state.audioCtx;
+        state.sourceNode = ctx.createMediaStreamSource(state.stream);
+
+        state.biquadFilter = ctx.createBiquadFilter();
+        state.biquadFilter.type = "lowpass";
+        state.biquadFilter.frequency.value = 1000;
+
+        state.analyser = ctx.createAnalyser();
+        state.analyser.fftSize = 2048;
+
+        state.sourceNode.connect(state.biquadFilter);
+        state.biquadFilter.connect(state.analyser);
+
+        state.isMicActive = true;
+        updateStatus(true, "Слушаю струну...");
+        dom.micToggleBtn.querySelector('.btn-text').textContent = "Остановить микрофон";
+        dom.micToggleBtn.classList.add("btn-active");
+
+        processAudioLoop();
+      } catch (err) {
+        console.error("Audio capture failed:", err);
+        updateStatus(false, "Ошибка доступа к микрофону");
+        alert("Не удалось получить доступ к микрофону. Разрешите доступ к микрофону в настройках браузера.");
+      }
+    }
+
+    function stopAudioEngine() {
+      if (state.rafId) cancelAnimationFrame(state.rafId);
+      if (state.stream) {
+        state.stream.getTracks().forEach(t => t.stop());
+      }
+      if (state.sourceNode) state.sourceNode.disconnect();
+      state.isMicActive = false;
+      updateStatus(false, "Остановлен");
+      dom.micToggleBtn.querySelector('.btn-text').textContent = "Включить микрофон";
+      dom.micToggleBtn.classList.remove("btn-active");
+      resetDisplays();
+    }
+
+    function updateStatus(active, text) {
+      if (active) {
+        dom.statusIndicator.className = "status-pill status-active";
+      } else {
+        dom.statusIndicator.className = "status-pill status-standby";
+      }
+      dom.statusIndicator.querySelector('.status-text').textContent = text;
+    }
+
+    function resetDisplays() {
+      dom.detectedNote.textContent = "--";
+      dom.detectedFreq.textContent = "0.00 Hz";
+      dom.detectedOctave.textContent = "";
+      dom.centsDisplay.textContent = "0 центов";
+      dom.centsDisplay.className = "note-cents-badge";
+      dom.rmsBarFill.style.width = "0%";
+      state.smoothedCents = 0;
+      drawGauge(0);
+    }
+
+    const audioBuffer = new Float32Array(2048);
+
+    function processAudioLoop() {
+      if (!state.isMicActive) return;
+
+      state.analyser.getFloatTimeDomainData(audioBuffer);
+      const sampleRate = state.audioCtx.sampleRate;
+      const { freq, rms } = autoCorrelate(audioBuffer, sampleRate);
+
+      const rmsPct = Math.min(100, (rms / 0.1) * 100);
+      dom.rmsBarFill.style.width = `${rmsPct}%`;
+
+      if (freq > 0) {
+        const noteInfo = freqToNoteInfo(freq);
+        state.currentDetectedFreq = freq;
+        state.currentDetectedCents = noteInfo.cents;
+        state.currentClosestNote = noteInfo;
+
+        dom.detectedNote.textContent = noteInfo.noteName;
+        dom.detectedOctave.textContent = noteInfo.octave;
+        dom.detectedFreq.textContent = `${freq.toFixed(1)} Hz`;
+
+        const cents = noteInfo.cents;
+        const sign = cents > 0 ? "+" : "";
+        dom.centsDisplay.textContent = `${sign}${cents} центов`;
+
+        dom.centsDisplay.classList.remove('in-tune', 'flat', 'sharp');
+        if (Math.abs(cents) <= 4) {
+          dom.centsDisplay.classList.add('in-tune');
+        } else if (cents < 0) {
+          dom.centsDisplay.classList.add('flat');
+        } else {
+          dom.centsDisplay.classList.add('sharp');
+        }
+
+        matchString(freq, noteInfo);
+      } else {
+        if (state.currentDetectedFreq > 0) {
+          state.currentDetectedCents *= 0.95;
+        }
+      }
+
+      state.smoothedCents += (state.currentDetectedCents - state.smoothedCents) * 0.18;
+      drawGauge(state.smoothedCents);
+
+      state.rafId = requestAnimationFrame(processAudioLoop);
+    }
+
+    function matchString(freq, noteInfo) {
+      const strings = getCurrentTuningStrings();
+
+      if (state.isAutoDetect) {
+        let bestIdx = -1;
+        let minRatioDiff = Infinity;
+
+        strings.forEach((str, idx) => {
+          const ratio = Math.abs(Math.log2(freq / str.calibratedFreq));
+          if (ratio < minRatioDiff) {
+            minRatioDiff = ratio;
+            bestIdx = idx;
+          }
+        });
+
+        if (bestIdx !== -1 && minRatioDiff < 0.22) {
+          state.selectedStringIdx = bestIdx;
+          highlightSelectedPeg();
+          animateVibratingString(bestIdx, Math.abs(noteInfo.cents) <= 4);
+        }
+      } else if (state.selectedStringIdx !== null) {
+        animateVibratingString(state.selectedStringIdx, Math.abs(noteInfo.cents) <= 4);
+      }
+    }
+
+    function animateVibratingString(idx, inTune) {
+      const cable = document.getElementById(`cable-${idx}`);
+      if (cable) {
+        cable.style.backgroundColor = inTune ? 'var(--accent-tune)' : 'var(--accent-hover)';
+        cable.style.boxShadow = `0 0 10px ${inTune ? 'var(--accent-tune)' : 'var(--accent-hover)'}`;
+        clearTimeout(cable._timer);
+        cable._timer = setTimeout(() => {
+          cable.style.backgroundColor = '';
+          cable.style.boxShadow = '';
+        }, 350);
+      }
+    }
+
+    /* =========================================================================
+       9. ОТРИСОВКА СТРЕЛОЧНОГО ДИСПЛЕЯ (CANVAS)
+       ========================================================================= */
+    function drawGauge(cents) {
+      const w = dom.gaugeCanvas.width;
+      const h = dom.gaugeCanvas.height;
+      canvasCtx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h - 18;
+      const radius = 135;
+
+      const minAngle = -Math.PI * 0.78;
+      const maxAngle = -Math.PI * 0.22;
+      const centerAngle = -Math.PI * 0.5;
+
+      const isLight = state.theme === 'light';
+
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx, cy, radius, minAngle, maxAngle, false);
+      canvasCtx.lineWidth = 14;
+      canvasCtx.strokeStyle = isLight ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.9)";
+      canvasCtx.stroke();
+
+      const inTuneRange = 0.05;
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx, cy, radius, centerAngle - inTuneRange, centerAngle + inTuneRange, false);
+      canvasCtx.lineWidth = 14;
+      canvasCtx.strokeStyle = isLight ? "rgba(22, 163, 74, 0.45)" : "rgba(16, 185, 129, 0.4)";
+      canvasCtx.stroke();
+
+      const totalTicks = 20;
+      for (let i = 0; i <= totalTicks; i++) {
+        const factor = i / totalTicks;
+        const angle = minAngle + factor * (maxAngle - minAngle);
+        const isCenter = i === totalTicks / 2;
+        const isMajor = i % 5 === 0;
+
+        const tickLen = isCenter ? 18 : (isMajor ? 12 : 6);
+        const innerR = radius - tickLen;
+
+        const x1 = cx + Math.cos(angle) * radius;
+        const y1 = cy + Math.sin(angle) * radius;
+        const x2 = cx + Math.cos(angle) * innerR;
+        const y2 = cy + Math.sin(angle) * innerR;
+
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(x1, y1);
+        canvasCtx.lineTo(x2, y2);
+        canvasCtx.lineWidth = isCenter ? 3.5 : (isMajor ? 2 : 1);
+
+        if (isCenter) {
+          canvasCtx.strokeStyle = isLight ? "#16a34a" : "#10b981";
+        } else if (isLight) {
+          canvasCtx.strokeStyle = isMajor ? "rgba(100, 116, 139, 0.5)" : "rgba(148, 163, 184, 0.3)";
+        } else {
+          canvasCtx.strokeStyle = isMajor ? "rgba(148, 163, 184, 0.4)" : "rgba(71, 85, 105, 0.3)";
+        }
+        canvasCtx.stroke();
+      }
+
+      const clampedCents = Math.max(-50, Math.min(50, cents));
+      const needleAngle = centerAngle + (clampedCents / 50) * (Math.PI * 0.28);
+
+      const inTune = Math.abs(clampedCents) <= 3.5;
+      let needleColor;
+      if (inTune) {
+        needleColor = isLight ? "#16a34a" : "#10b981";
+      } else if (clampedCents < 0) {
+        needleColor = isLight ? "#f43f5e" : "#38bdf8";
+      } else {
+        needleColor = isLight ? "#e11d48" : "#f59e0b";
+      }
+
+      canvasCtx.save();
+      canvasCtx.shadowColor = needleColor;
+      canvasCtx.shadowBlur = inTune ? 14 : 7;
+
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(cx, cy);
+      const nx = cx + Math.cos(needleAngle) * (radius - 22);
+      const ny = cy + Math.sin(needleAngle) * (radius - 22);
+      canvasCtx.lineTo(nx, ny);
+      canvasCtx.lineWidth = 3.5;
+      canvasCtx.lineCap = "round";
+      canvasCtx.strokeStyle = needleColor;
+      canvasCtx.stroke();
+
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx, cy, 7, 0, Math.PI * 2);
+      canvasCtx.fillStyle = needleColor;
+      canvasCtx.fill();
+      canvasCtx.restore();
+    }
+
+    /* =========================================================================
+       10. ОБРАБОТЧИКИ СОБЫТИЙ
+       ========================================================================= */
+    dom.micToggleBtn.addEventListener('click', () => {
+      if (state.isMicActive) {
+        stopAudioEngine();
+      } else {
+        startAudioEngine();
+      }
+    });
+
+    dom.instrumentSelect.addEventListener('change', (e) => {
+      state.currentInstrument = e.target.value;
+      renderTuningDropdown();
+    });
+
+    dom.tuningSelect.addEventListener('change', (e) => {
+      state.currentTuningId = e.target.value;
+      renderStringPegs();
+    });
+
+    dom.autoSelectToggle.addEventListener('click', () => {
+      state.isAutoDetect = !state.isAutoDetect;
+      dom.autoSelectToggle.classList.toggle('active', state.isAutoDetect);
+      if (state.isAutoDetect) {
+        state.selectedStringIdx = null;
+        highlightSelectedPeg();
+      }
+    });
+
+    dom.a4RefSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      state.referenceA4 = val;
+      dom.a4RefVal.textContent = `${val} Hz`;
+      updateActiveQuickPick(val);
+      renderStringPegs();
+    });
+
+    dom.quickPicks.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = parseInt(btn.dataset.val, 10);
+        state.referenceA4 = val;
+        dom.a4RefSlider.value = val;
+        dom.a4RefVal.textContent = `${val} Hz`;
+        updateActiveQuickPick(val);
+        renderStringPegs();
+      });
+    });
+
+    function updateActiveQuickPick(val) {
+      dom.quickPicks.forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.val, 10) === val);
+      });
+    }
+
+    dom.noiseGateSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      state.noiseThreshold = val;
+      dom.noiseGateVal.textContent = val.toFixed(3);
+    });
+
+    /* Стартовый рендер */
+    renderTuningDropdown();
+    drawGauge(0);
+  </script>
+</body>
+</html>
